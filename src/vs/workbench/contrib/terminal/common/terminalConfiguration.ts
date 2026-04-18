@@ -314,7 +314,7 @@ const terminalConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
 		default: 1000
 	},
 	[TerminalSettingId.DetectLocale]: {
-		markdownDescription: localize('terminal.integrated.detectLocale', "Controls whether to detect and set the `$LANG` environment variable to a UTF-8 compliant option since VS Code's terminal only supports UTF-8 encoded data coming from the shell."),
+		markdownDescription: localize('terminal.integrated.detectLocale', "Controls whether to detect and set the `$LANG` environment variable to a UTF-8 compliant option since NourLMS Code Server's terminal only supports UTF-8 encoded data coming from the shell."),
 		type: 'string',
 		enum: ['auto', 'off', 'on'],
 		markdownEnumDescriptions: [

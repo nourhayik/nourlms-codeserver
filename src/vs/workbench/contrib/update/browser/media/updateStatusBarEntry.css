@@ -43,10 +43,15 @@
 	border-radius: var(--vscode-cornerRadius-large);
 	padding: 5px;
 	flex-shrink: 0;
-	background-image: url('../../../../browser/media/code-icon.svg');
+	background-image: url('nourlms-logo-white.png');
 	background-size: contain;
 	background-position: center;
 	background-repeat: no-repeat;
+}
+
+.monaco-workbench.vs .update-status-tooltip .product-logo,
+.monaco-workbench.hc-light .update-status-tooltip .product-logo {
+	background-image: url('nourlms-logo-color.png');
 }
 
 .update-status-tooltip .product-details {

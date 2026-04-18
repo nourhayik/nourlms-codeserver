@@ -61,24 +61,31 @@
 .monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark .letterpress {
 	width: 100%;
 	max-height: 100%;
-	aspect-ratio: 1/1;
-	background-image: url('./letterpress-light.svg');
+	aspect-ratio: 670 / 882;
+	background-image: url('./nourlms-logo-color.png');
 	background-size: contain;
 	background-position-x: center;
+	background-position-y: center;
 	background-repeat: no-repeat;
-	max-width: 256px;
+	max-width: 180px;
+	flex-shrink: 0;
+	opacity: 0.15;
 }
 
-.monaco-workbench.vs-dark .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-dark.svg');
+.monaco-workbench.vs .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
+	background-image: url('./nourlms-logo-color.png');
 }
 
 .monaco-workbench.hc-light .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-hcLight.svg');
+	background-image: url('./nourlms-logo-color.png');
+}
+
+.monaco-workbench.vs-dark .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
+	background-image: url('./nourlms-logo-white.png');
 }
 
 .monaco-workbench.hc-black .part.editor > .content .editor-group-container .editor-group-watermark .letterpress {
-	background-image: url('./letterpress-hcDark.svg');
+	background-image: url('./nourlms-logo-white.png');
 }
 
 .monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark .shortcuts {

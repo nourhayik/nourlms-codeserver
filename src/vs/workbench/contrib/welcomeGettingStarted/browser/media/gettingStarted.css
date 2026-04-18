@@ -5,7 +5,12 @@
 
 .file-icons-enabled .show-file-icons .vscode_getting_started_page-name-file-icon.file-icon::before {
 	content: ' ';
-	background-image: url('../../../../browser/media/code-icon.svg');
+	background-image: url('nourlms-logo-white.png');
+}
+
+.monaco-workbench.vs .file-icons-enabled .show-file-icons .vscode_getting_started_page-name-file-icon.file-icon::before,
+.monaco-workbench.hc-light .file-icons-enabled .show-file-icons .vscode_getting_started_page-name-file-icon.file-icon::before {
+	background-image: url('nourlms-logo-color.png');
 }
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer {
@@ -168,6 +173,23 @@
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer > .header {
 	grid-area: header;
 	align-self: end;
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer > .header .product-name.caption::before {
+	content: '';
+	display: block;
+	height: 48px;
+	margin-bottom: 8px;
+	background-image: url('nourlms-logo-white.png');
+	background-size: contain;
+	background-repeat: no-repeat;
+	background-position: center;
+	max-width: 200px;
+}
+
+.monaco-workbench.vs .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer > .header .product-name.caption::before,
+.monaco-workbench.hc-light .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer > .header .product-name.caption::before {
+	background-image: url('nourlms-logo-color.png');
 }
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer > .footer {

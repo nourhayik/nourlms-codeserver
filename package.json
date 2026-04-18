@@ -3,7 +3,7 @@
   "version": "1.110.0",
   "distro": "bd187e4508a244500eb533c56e5cccb6801a699c",
   "author": {
-    "name": "Microsoft Corporation"
+    "name": "NourLMS"
   },
   "license": "MIT",
   "main": "./out/main.js",

@@ -73,6 +73,10 @@ import './services/auxiliaryWindow/browser/auxiliaryWindowService.js';
 import './services/browserElements/browser/webBrowserElementsService.js';
 import './services/power/browser/powerService.js';
 
+// NourLMS auth
+import './services/nourlms/browser/nourlms.contribution.js';
+import './contrib/nourlms/browser/nourlms.contribution.js';
+
 import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';
 import { IAccessibilityService } from '../platform/accessibility/common/accessibility.js';
 import { IContextMenuService } from '../platform/contextview/browser/contextView.js';

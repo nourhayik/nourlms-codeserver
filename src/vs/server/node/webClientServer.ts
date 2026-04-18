@@ -8,6 +8,8 @@ import type * as http from 'http';
 import * as url from 'url';
 import * as cookie from 'cookie';
 import * as crypto from 'crypto';
+import * as os from 'os';
+import * as nodePath from 'path';
 import { isEqualOrParent } from '../../base/common/extpath.js';
 import { getMediaMime } from '../../base/common/mime.js';
 import { isLinux } from '../../base/common/platform.js';
@@ -28,6 +30,7 @@ import { isString, Mutable } from '../../base/common/types.js';
 import { CharCode } from '../../base/common/charCode.js';
 import { IExtensionManifest } from '../../platform/extensions/common/extensions.js';
 import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService.js';
+import * as nourlmsAuth from './nourlmsAuth.js';
 
 const textMimeType: { [ext: string]: string | undefined } = {
 	'.html': 'text/html',
@@ -332,6 +335,25 @@ export class WebClientServer {
 			scopes: [['user:email'], ['repo']]
 		} : undefined;
 
+		// NourLMS: resolve user session and workspace
+		const nourlmsSession = (req as any).__nourlmsSession as nourlmsAuth.NourlmsSession | undefined;
+		let nourlmsUserInfo: { name: string; role: string; workspacePath: string } | undefined;
+		let effectiveFolderUri: URI | undefined = (this._environmentService.args['default-folder'] ? resolveWorkspaceURI(this._environmentService.args['default-folder']) : undefined) || undefined;
+		let effectiveWorkspaceUri: URI | undefined = (this._environmentService.args['default-workspace'] ? resolveWorkspaceURI(this._environmentService.args['default-workspace']) : undefined) || undefined;
+
+		if (nourlmsSession) {
+			const workspacesDir = this._environmentService.args['nourlms-workspaces-dir'] || nodePath.join(os.homedir(), 'nourlms-workspaces');
+			if (nourlmsSession.role === 'student') {
+				const sanitizedName = nourlmsAuth.sanitizeUsername(nourlmsSession.name);
+				const workspacePath = nourlmsAuth.ensureWorkspaceDir(workspacesDir, sanitizedName);
+				effectiveFolderUri = URI.file(workspacePath).with({ scheme: Schemas.vscodeRemote, authority: remoteAuthority });
+				effectiveWorkspaceUri = undefined;
+				nourlmsUserInfo = { name: nourlmsSession.name, role: nourlmsSession.role, workspacePath };
+			} else {
+				nourlmsUserInfo = { name: nourlmsSession.name, role: nourlmsSession.role, workspacePath: workspacesDir };
+			}
+		}
+
 		const productConfiguration: Partial<Mutable<IProductConfiguration>> = {
 			// embedderIdentifier: 'server-distro',
 			// extensionsGallery: this._webExtensionResourceUrlTemplate && this._productService.extensionsGallery ? {
@@ -364,8 +386,8 @@ export class WebClientServer {
 			developmentOptions: { enableSmokeTestDriver: this._environmentService.args['enable-smoke-test-driver'] ? true : undefined, logLevel: this._logService.getLevel() },
 			settingsSyncOptions: !this._environmentService.isBuilt && this._environmentService.args['enable-sync'] ? { enabled: true } : undefined,
 			enableWorkspaceTrust: !this._environmentService.args['disable-workspace-trust'],
-			folderUri: resolveWorkspaceURI(this._environmentService.args['default-folder']),
-			workspaceUri: resolveWorkspaceURI(this._environmentService.args['default-workspace']),
+			folderUri: effectiveFolderUri,
+			workspaceUri: effectiveWorkspaceUri,
 			productConfiguration,
 			callbackRoute: callbackRoute
 		};
@@ -386,7 +408,8 @@ export class WebClientServer {
 			WORKBENCH_AUTH_SESSION: authSessionInfo ? asJSON(authSessionInfo) : '',
 			WORKBENCH_WEB_BASE_URL: staticRoute,
 			WORKBENCH_NLS_URL,
-			WORKBENCH_NLS_FALLBACK_URL: `${staticRoute}/out/nls.messages.js`
+			WORKBENCH_NLS_FALLBACK_URL: `${staticRoute}/out/nls.messages.js`,
+			WORKBENCH_NOURLMS_USER: nourlmsUserInfo ? asJSON(nourlmsUserInfo) : '',
 		};
 
 		// DEV ---------------------------------------------------------------------------------------

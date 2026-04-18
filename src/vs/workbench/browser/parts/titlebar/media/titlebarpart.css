@@ -270,10 +270,19 @@
 }
 
 .monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon:not(.codicon) {
-	background-image: url('../../../media/code-icon.svg');
+	background-image: url('nourlms-logo-white.png');
 	background-repeat: no-repeat;
 	background-position: center center;
 	background-size: 16px;
+}
+
+.monaco-workbench.vs .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon:not(.codicon),
+.monaco-workbench.vs .part.titlebar.light > .titlebar-container > .titlebar-left > .window-appicon:not(.codicon) {
+	background-image: url('nourlms-logo-color.png');
+}
+
+.monaco-workbench.hc-light .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon:not(.codicon) {
+	background-image: url('nourlms-logo-color.png');
 }
 
 .monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .window-appicon.codicon {

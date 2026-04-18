@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>NourLMS - Login</title>
+	<style>
+		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+			background: #1e1e1e;
+			color: #cccccc;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 100vh;
+		}
+		.login-container {
+			background: #252526;
+			border: 1px solid #3c3c3c;
+			border-radius: 8px;
+			padding: 40px;
+			width: 100%;
+			max-width: 400px;
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+		}
+		.login-header {
+			text-align: center;
+			margin-bottom: 32px;
+		}
+		.login-header h1 {
+			font-size: 24px;
+			color: #ffffff;
+			margin-bottom: 8px;
+		}
+		.login-header p {
+			font-size: 14px;
+			color: #888888;
+		}
+		.form-group {
+			margin-bottom: 20px;
+		}
+		.form-group label {
+			display: block;
+			font-size: 13px;
+			color: #cccccc;
+			margin-bottom: 6px;
+		}
+		.form-group input {
+			width: 100%;
+			padding: 10px 12px;
+			font-size: 14px;
+			background: #3c3c3c;
+			border: 1px solid #4c4c4c;
+			border-radius: 4px;
+			color: #ffffff;
+			outline: none;
+			transition: border-color 0.15s;
+		}
+		.form-group input:focus {
+			border-color: #007acc;
+		}
+		.form-group input::placeholder {
+			color: #666666;
+		}
+		.login-button {
+			width: 100%;
+			padding: 10px;
+			font-size: 14px;
+			background: #0e639c;
+			color: #ffffff;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			transition: background 0.15s;
+		}
+		.login-button:hover { background: #1177bb; }
+		.login-button:disabled {
+			background: #3c3c3c;
+			color: #666666;
+			cursor: not-allowed;
+		}
+		.error-message {
+			background: #3c1f1f;
+			border: 1px solid #5c2d2d;
+			border-radius: 4px;
+			padding: 10px 12px;
+			margin-bottom: 20px;
+			font-size: 13px;
+			color: #f48771;
+			display: none;
+		}
+		.error-message.visible { display: block; }
+	</style>
+</head>
+<body>
+	<div class="login-container">
+		<div class="login-header">
+			<h1>NourLMS Code</h1>
+			<p>Sign in to access your workspace</p>
+		</div>
+		<div class="error-message" id="error"></div>
+		<form id="loginForm" method="POST" action="/nourlms-login">
+			<div class="form-group">
+				<label for="phone">Phone Number</label>
+				<input type="tel" id="phone" name="phone" placeholder="+964XXXXXXXXXX" required autocomplete="tel">
+			</div>
+			<div class="form-group">
+				<label for="password">Password</label>
+				<input type="password" id="password" name="password" placeholder="Enter your password" required autocomplete="current-password">
+			</div>
+			<button type="submit" class="login-button" id="submitBtn">Sign In</button>
+		</form>
+	</div>
+	<script>
+		(function () {
+			var params = new URLSearchParams(window.location.search);
+			var errorParam = params.get('error');
+			var errorEl = document.getElementById('error');
+			if (errorParam && errorEl) {
+				errorEl.textContent = decodeURIComponent(errorParam);
+				errorEl.classList.add('visible');
+			}
+			var form = document.getElementById('loginForm');
+			var btn = document.getElementById('submitBtn');
+			form.addEventListener('submit', function () {
+				btn.disabled = true;
+				btn.textContent = 'Signing in...';
+			});
+		})();
+	</script>
+</body>
+</html>

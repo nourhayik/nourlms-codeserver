@@ -97,6 +97,11 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 
 	'compatibility': { type: 'string' },
 
+	/* ----- nourlms auth ----- */
+
+	'nourlms-api-url': { type: 'string', cat: 'o', args: 'url', description: nls.localize('nourlmsApiUrl', "The NourLMS API base URL for authentication (e.g. http://nourlmsv3.local/api). Required to enable login-gated access.") },
+	'nourlms-workspaces-dir': { type: 'string', cat: 'o', args: 'path', description: nls.localize('nourlmsWorkspacesDir', "The directory where student workspaces are stored. Defaults to '<home>/nourlms-workspaces'.") },
+
 	_: OPTIONS['_']
 };
 
@@ -225,6 +230,11 @@ export interface ServerParsedArgs {
 	'locate-shell-integration-path'?: string;
 
 	compatibility: string;
+
+	/* ----- nourlms auth ----- */
+
+	'nourlms-api-url'?: string;
+	'nourlms-workspaces-dir'?: string;
 
 	_: string[];
 }

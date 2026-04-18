@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'os';
 import * as fs from 'fs';
 import type * as http from 'http';
 import * as net from 'net';
@@ -35,10 +36,13 @@ import { RemoteAgentConnectionContext } from '../../platform/remote/common/remot
 import { ITelemetryService } from '../../platform/telemetry/common/telemetry.js';
 import { ExtensionHostConnection } from './extensionHostConnection.js';
 import { ManagementConnection } from './remoteExtensionManagement.js';
-import { determineServerConnectionToken, requestHasValidConnectionToken as httpRequestHasValidConnectionToken, ServerConnectionToken, ServerConnectionTokenParseError, ServerConnectionTokenType } from './serverConnectionToken.js';
+import { determineServerConnectionToken, ServerConnectionToken, ServerConnectionTokenParseError, ServerConnectionTokenType } from './serverConnectionToken.js';
 import { IServerEnvironmentService, ServerParsedArgs } from './serverEnvironmentService.js';
 import { setupServerServices, SocketServer } from './serverServices.js';
 import { CacheControl, serveError, serveFile, WebClientServer } from './webClientServer.js';
+import * as nourlmsAuth from './nourlmsAuth.js';
+import * as nodeHttp from 'http';
+import * as nodePath from 'path';
 const require = createRequire(import.meta.url);
 
 const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
@@ -106,11 +110,6 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 	}
 
 	public async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-		// Only serve GET requests
-		if (req.method !== 'GET') {
-			return serveError(req, res, 405, `Unsupported method ${req.method}`);
-		}
-
 		if (!req.url) {
 			return serveError(req, res, 400, `Bad request.`);
 		}
@@ -131,22 +130,53 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			pathname = pathname.substring(this._serverProductPath.length);
 		}
 
-		// Version
-		if (pathname === '/version') {
+		// Version (no auth needed)
+		if (pathname === '/version' && req.method === 'GET') {
 			res.writeHead(200, { 'Content-Type': 'text/plain' });
 			return void res.end(this._productService.commit || '');
 		}
 
-		// Delay shutdown
-		if (pathname === '/delay-shutdown') {
+		// Delay shutdown (no auth needed)
+		if (pathname === '/delay-shutdown' && req.method === 'GET') {
 			this._delayShutdown();
 			res.writeHead(200);
 			return void res.end('OK');
 		}
 
-		if (!httpRequestHasValidConnectionToken(this._connectionToken, req, parsedUrl)) {
-			// invalid connection token
-			return serveError(req, res, 403, `Forbidden.`);
+		const nourlmsApiUrl = this._environmentService.args['nourlms-api-url'] || process.env.NOURLMS_API_URL || 'http://nourlmsv3.local/api';
+
+		// GET /nourlms-login - serve login page (no auth needed)
+		if (pathname === '/nourlms-login' && req.method === 'GET') {
+			return this._serveLoginPage(req, res);
+		}
+
+		// POST /nourlms-login - proxy login to NourLMS API (no auth needed)
+		if (pathname === '/nourlms-login' && req.method === 'POST') {
+			return this._handleNourlmsLogin(req, res, nourlmsApiUrl);
+		}
+
+		// POST /nourlms-logout - clear session and redirect to login (no auth needed, always clears cookie)
+		if (pathname === '/nourlms-logout' && req.method === 'POST') {
+			return this._handleNourlmsLogout(req, res, nourlmsApiUrl);
+		}
+
+		// Authentication: always check session cookie (NourLMS auth is mandatory)
+		const nourlmsSession = nourlmsAuth.parseSessionCookie(req.headers.cookie, this._environmentService.userDataPath);
+		if (!nourlmsSession) {
+			const basePath = this._getBasePath(req);
+			res.writeHead(302, { 'Location': `${basePath}nourlms-login` });
+			return void res.end();
+		}
+		(req as any).__nourlmsSession = nourlmsSession;
+
+		// GET /nourlms-workspaces - list student workspaces (admin only, auth required)
+		if (pathname === '/nourlms-workspaces' && req.method === 'GET') {
+			return this._handleNourlmsWorkspaces(req, res, nourlmsSession);
+		}
+
+		// Only GET for remaining routes
+		if (req.method !== 'GET') {
+			return serveError(req, res, 405, `Unsupported method ${req.method}`);
 		}
 
 		if (pathname === '/vscode-remote-resource') {
@@ -162,6 +192,18 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				filePath = URI.from({ scheme: Schemas.file, path: desiredPath }).fsPath;
 			} catch (err) {
 				return serveError(req, res, 400, `Bad request.`);
+			}
+
+			// NourLMS student workspace isolation
+			const nourlmsSessionForPath = (req as any).__nourlmsSession as nourlmsAuth.NourlmsSession | undefined;
+			if (nourlmsSessionForPath && nourlmsSessionForPath.role === 'student') {
+				const workspacesDir = this._environmentService.args['nourlms-workspaces-dir'] || nodePath.join(os.homedir(), 'nourlms-workspaces');
+				const sanitizedName = nourlmsAuth.sanitizeUsername(nourlmsSessionForPath.name);
+				const allowedPath = nodePath.resolve(nodePath.join(workspacesDir, sanitizedName));
+				const requestedResolved = nodePath.resolve(filePath);
+				if (!requestedResolved.startsWith(allowedPath + nodePath.sep) && requestedResolved !== allowedPath) {
+					return serveError(req, res, 403, `Access denied.`);
+				}
 			}
 
 			const responseHeaders: Record<string, string> = Object.create(null);
@@ -190,6 +232,189 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 
 		res.writeHead(404, { 'Content-Type': 'text/plain' });
 		return void res.end('Not found');
+	}
+
+	private _getBasePath(req: http.IncomingMessage): string {
+		const forwardedPrefix = req.headers['x-forwarded-prefix'];
+		const val = Array.isArray(forwardedPrefix) ? forwardedPrefix[0] : forwardedPrefix;
+		if (typeof val === 'string' && val.length > 0) {
+			return val.endsWith('/') ? val : val + '/';
+		}
+		return '/';
+	}
+
+	private async _serveLoginPage(_req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+		try {
+			const loginPagePath = FileAccess.asFileUri('vs/server/nourlms-login.html').fsPath;
+			const html = (await fs.promises.readFile(loginPagePath)).toString('utf8');
+			res.writeHead(200, {
+				'Content-Type': 'text/html',
+				'Cache-Control': 'no-store',
+			});
+			return void res.end(html);
+		} catch (e) {
+			this._logService.error('Failed to serve login page', e);
+			return serveError(_req, res, 500, 'Failed to serve login page.');
+		}
+	}
+
+	private async _handleNourlmsLogin(req: http.IncomingMessage, res: http.ServerResponse, nourlmsApiUrl: string | undefined): Promise<void> {
+		if (!nourlmsApiUrl) {
+			return serveError(req, res, 500, 'NourLMS API URL not configured.');
+		}
+
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			let phone: string | undefined;
+			let password: string | undefined;
+			try {
+				const parsed = JSON.parse(body);
+				phone = parsed.phone;
+				password = parsed.password;
+			} catch {
+				try {
+					const params = new URLSearchParams(body);
+					phone = params.get('phone') || undefined;
+					password = params.get('password') || undefined;
+				} catch {
+					// fallback
+				}
+			}
+
+			if (!phone || !password) {
+				const basePath = this._getBasePath(req);
+				res.writeHead(302, { 'Location': `${basePath}nourlms-login?error=${encodeURIComponent('Phone number and password are required.')}` });
+				return void res.end();
+			}
+
+			const loginUrl = `${nourlmsApiUrl.replace(/\/+$/, '')}/auth/login`;
+			const postData = JSON.stringify({ phone, password });
+			const apiUrl = url.parse(loginUrl);
+
+			const options: nodeHttp.RequestOptions = {
+				hostname: apiUrl.hostname,
+				port: apiUrl.port || (apiUrl.protocol === 'https:' ? 443 : 80),
+				path: apiUrl.path,
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Accept': 'application/json',
+					'Content-Length': Buffer.byteLength(postData),
+				},
+			};
+
+			const httpModule = apiUrl.protocol === 'https:' ? require('https') : require('http');
+			const apiReq = httpModule.request(options, (apiRes: nodeHttp.IncomingMessage) => {
+				let data = '';
+				apiRes.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+				apiRes.on('end', () => {
+					const basePath = this._getBasePath(req);
+
+					if (apiRes.statusCode === 200) {
+						try {
+							const result = JSON.parse(data);
+							const session: nourlmsAuth.NourlmsSession = {
+								userId: result.user.id,
+								name: result.user.name,
+								role: result.user.roles[0] || 'student',
+								token: result.token,
+							};
+							const cookieStr = nourlmsAuth.createSessionCookie(session, this._environmentService.userDataPath);
+							res.writeHead(302, {
+								'Location': basePath,
+								'Set-Cookie': cookieStr,
+							});
+							return void res.end();
+						} catch {
+							res.writeHead(302, { 'Location': `${basePath}nourlms-login?error=${encodeURIComponent('Login failed. Please try again.')}` });
+							return void res.end();
+						}
+					}
+
+					if (apiRes.statusCode === 403) {
+						res.writeHead(302, { 'Location': `${basePath}nourlms-login?error=${encodeURIComponent('Account is suspended.')}` });
+						return void res.end();
+					}
+
+					if (apiRes.statusCode === 429) {
+						res.writeHead(302, { 'Location': `${basePath}nourlms-login?error=${encodeURIComponent('Too many login attempts. Please try again later.')}` });
+						return void res.end();
+					}
+
+					res.writeHead(302, { 'Location': `${basePath}nourlms-login?error=${encodeURIComponent('Invalid credentials.')}` });
+					return void res.end();
+				});
+			});
+
+			apiReq.on('error', () => {
+				const basePath = this._getBasePath(req);
+				res.writeHead(302, { 'Location': `${basePath}nourlms-login?error=${encodeURIComponent('Unable to connect to authentication server.')}` });
+				return void res.end();
+			});
+
+			apiReq.write(postData);
+			apiReq.end();
+		});
+	}
+
+	private async _handleNourlmsLogout(req: http.IncomingMessage, res: http.ServerResponse, nourlmsApiUrl: string | undefined): Promise<void> {
+		const session = nourlmsAuth.parseSessionCookie(req.headers.cookie, this._environmentService.userDataPath);
+		const basePath = this._getBasePath(req);
+
+		if (session && nourlmsApiUrl) {
+			const logoutUrl = `${nourlmsApiUrl.replace(/\/+$/, '')}/auth/logout`;
+			const apiUrl = url.parse(logoutUrl);
+			const options: nodeHttp.RequestOptions = {
+				hostname: apiUrl.hostname,
+				port: apiUrl.port || (apiUrl.protocol === 'https:' ? 443 : 80),
+				path: apiUrl.path,
+				method: 'POST',
+				headers: {
+					'Accept': 'application/json',
+					'Authorization': `Bearer ${session.token}`,
+				},
+			};
+			const httpModule = apiUrl.protocol === 'https:' ? require('https') : require('http');
+			try {
+				const apiReq = httpModule.request(options, (apiRes: nodeHttp.IncomingMessage) => {
+					apiRes.resume();
+				});
+				apiReq.on('error', () => { });
+				apiReq.end();
+			} catch { }
+		}
+
+		res.writeHead(302, {
+			'Location': `${basePath}nourlms-login`,
+			'Set-Cookie': nourlmsAuth.createLogoutCookie(),
+		});
+		return void res.end();
+	}
+
+	private _handleNourlmsWorkspaces(_req: http.IncomingMessage, res: http.ServerResponse, session: nourlmsAuth.NourlmsSession): void {
+		if (session.role !== 'admin') {
+			res.writeHead(403, { 'Content-Type': 'application/json' });
+			return void res.end(JSON.stringify({ error: 'Access denied.' }));
+		}
+
+		const workspacesDir = this._environmentService.args['nourlms-workspaces-dir'] || nodePath.join(os.homedir(), 'nourlms-workspaces');
+		try {
+		if (!fs.existsSync(workspacesDir)) {
+			res.writeHead(200, { 'Content-Type': 'application/json' });
+			return void res.end(JSON.stringify({ workspaces: [] }));
+		}
+		const entries = fs.readdirSync(workspacesDir, { withFileTypes: true });
+			const workspaces = entries
+				.filter(e => e.isDirectory())
+				.map(e => ({ name: e.name, path: nodePath.join(workspacesDir, e.name) }));
+			res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+			return void res.end(JSON.stringify({ workspaces }));
+		} catch (e) {
+			this._logService.error('Failed to list workspaces', e);
+			res.writeHead(500, { 'Content-Type': 'application/json' });
+			return void res.end(JSON.stringify({ error: 'Failed to list workspaces.' }));
+		}
 	}
 
 	public handleUpgrade(req: http.IncomingMessage, socket: net.Socket) {

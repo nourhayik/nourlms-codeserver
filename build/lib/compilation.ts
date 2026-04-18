@@ -86,8 +86,8 @@ export function createCompile(src: string, { build, emitError, transpileOnly, pr
 		const productConfiguration = JSON.stringify({
 			...productJson,
 			version: `${packageJson.version}-dev`,
-			nameShort: `${productJson.nameShort} Dev`,
-			nameLong: `${productJson.nameLong} Dev`,
+			nameShort: `${productJson.nameShort}`,
+			nameLong: `${productJson.nameLong}`,
 			dataFolderName: `${productJson.dataFolderName}-dev`
 		});
 

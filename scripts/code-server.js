@@ -28,9 +28,22 @@ async function main() {
 		return;
 	}
 
-	process.env['VSCODE_SERVER_PORT'] = '9888';
+	process.env['VSCODE_SERVER_PORT'] = '3000';
 
-	const serverArgs = process.argv.slice(2).filter(v => v !== '--launch');
+	const serverArgs = process.argv.slice(2).filter(v => v !== '--launch' && v !== '--');
+	if (!serverArgs.includes('--without-connection-token') && !serverArgs.includes('--connection-token') && !serverArgs.includes('--connection-token-file')) {
+		serverArgs.push('--without-connection-token');
+	}
+	if (!serverArgs.some(a => a.startsWith('--nourlms-api-url')) && !process.env.NOURLMS_API_URL) {
+		serverArgs.push('--nourlms-api-url', 'http://nourlmsv3.local/api');
+	}
+	if (!serverArgs.some(a => a.startsWith('--nourlms-workspaces-dir'))) {
+		const path = require('path');
+		const os = require('os');
+		serverArgs.push('--nourlms-workspaces-dir', path.join(os.homedir(), 'nourlms-workspaces'));
+	}
+	serverArgs.push('--host', '0.0.0.0');
+	serverArgs.push('--port', '3000');
 	const addr = await startServer(serverArgs);
 	if (args['launch']) {
 		open.default(addr);
