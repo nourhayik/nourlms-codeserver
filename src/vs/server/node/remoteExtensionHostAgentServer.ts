@@ -201,8 +201,14 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				const sanitizedName = nourlmsAuth.sanitizeUsername(nourlmsSessionForPath.name);
 				const allowedPath = nodePath.resolve(nodePath.join(workspacesDir, sanitizedName));
 				const requestedResolved = nodePath.resolve(filePath);
-				if (!requestedResolved.startsWith(allowedPath + nodePath.sep) && requestedResolved !== allowedPath) {
-					return serveError(req, res, 403, `Access denied.`);
+				const resolvedWorkspacesDir = nodePath.resolve(workspacesDir);
+				const isInsideWorkspacesDir =
+					requestedResolved.startsWith(resolvedWorkspacesDir + nodePath.sep) ||
+					requestedResolved === resolvedWorkspacesDir;
+				if (isInsideWorkspacesDir) {
+					if (!requestedResolved.startsWith(allowedPath + nodePath.sep) && requestedResolved !== allowedPath) {
+						return serveError(req, res, 403, `Access denied.`);
+					}
 				}
 			}
 
@@ -400,11 +406,11 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 
 		const workspacesDir = this._environmentService.args['nourlms-workspaces-dir'] || nodePath.join(os.homedir(), 'nourlms-workspaces');
 		try {
-		if (!fs.existsSync(workspacesDir)) {
-			res.writeHead(200, { 'Content-Type': 'application/json' });
-			return void res.end(JSON.stringify({ workspaces: [] }));
-		}
-		const entries = fs.readdirSync(workspacesDir, { withFileTypes: true });
+			if (!fs.existsSync(workspacesDir)) {
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				return void res.end(JSON.stringify({ workspaces: [] }));
+			}
+			const entries = fs.readdirSync(workspacesDir, { withFileTypes: true });
 			const workspaces = entries
 				.filter(e => e.isDirectory())
 				.map(e => ({ name: e.name, path: nodePath.join(workspacesDir, e.name) }));
