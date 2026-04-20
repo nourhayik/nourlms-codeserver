@@ -128,7 +128,7 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 			return;
 		}
 
-		const enabled = isStartupPageEnabled(this.configurationService, this.contextService, this.environmentService);
+		const enabled = isStartupPageEnabled(this.configurationService, this.contextService, this.environmentService, this.contextKeyService);
 		if (enabled && this.lifecycleService.startupKind !== StartupKind.ReloadedWindow) {
 
 			// Open the welcome even if we opened a set of default editors
@@ -227,8 +227,12 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 	}
 }
 
-function isStartupPageEnabled(configurationService: IConfigurationService, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService) {
+function isStartupPageEnabled(configurationService: IConfigurationService, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService, contextKeyService?: IContextKeyService) {
 	if (environmentService.skipWelcome) {
+		return false;
+	}
+
+	if (contextKeyService && contextKeyService.getContextKeyValue('nourlmsStudentRestricted')) {
 		return false;
 	}
 

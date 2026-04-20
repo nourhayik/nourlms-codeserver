@@ -389,7 +389,11 @@ export class WebClientServer {
 			folderUri: effectiveFolderUri,
 			workspaceUri: effectiveWorkspaceUri,
 			productConfiguration,
-			callbackRoute: callbackRoute
+			callbackRoute: callbackRoute,
+			configurationDefaults: {
+				'workbench.colorTheme': 'Default Dark Modern',
+				...(nourlmsSession?.role === 'student' ? { 'workbench.startupEditor': 'none' } : {}),
+			},
 		};
 
 		const cookies = cookie.parse(req.headers.cookie || '');
