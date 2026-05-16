@@ -5,5 +5,6 @@
 
 import { registerNourlmsStudentRestrictions } from './nourlmsStudentRestrictions.js';
 import './nourlmsAdminWorkspaces.js';
+import './homework/nourlmsHomework.contribution.js';
 
 registerNourlmsStudentRestrictions();

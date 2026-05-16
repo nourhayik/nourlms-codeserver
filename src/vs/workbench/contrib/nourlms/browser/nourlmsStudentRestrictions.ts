@@ -128,7 +128,6 @@ const BLOCKED_COMMANDS_FOR_STUDENTS = [
 	"workbench.action.openActivityBar",
 	"workbench.action.toggleActivityBarVisibility",
 	"workbench.action.toggleStatusbarVisibility",
-	"workbench.action.toggleAuxiliaryBar",
 	"workbench.action.togglePanel",
 	"workbench.action.toggleMenuBar",
 	"workbench.action.customizeLayout",
@@ -137,7 +136,6 @@ const BLOCKED_COMMANDS_FOR_STUDENTS = [
 	"workbench.action.toggleCenteredLayout",
 	// --- Sessions layout toggles ---
 	"workbench.action.agentToggleSidebarVisibility",
-	"workbench.action.agentToggleSecondarySidebarVisibility",
 	"workbench.action.agentTogglePanelVisibility",
 	// --- Output / views ---
 	"workbench.action.output.toggleOutput",
@@ -259,6 +257,9 @@ class NourlmsStudentRestrictions
 	private _hideUIParts(): void {
 		this.layoutService.setPartHidden(true, Parts.STATUSBAR_PART);
 		this.layoutService.setPartHidden(true, Parts.ACTIVITYBAR_PART);
+		// Homework lives in a full-page editor pane now, not in the secondary
+		// side bar — hide it for students completely.
+		this.layoutService.setPartHidden(true, Parts.AUXILIARYBAR_PART);
 	}
 
 	/**
@@ -270,6 +271,9 @@ class NourlmsStudentRestrictions
 			this.layoutService.onDidChangePartVisibility((e) => {
 				if (e.partId === Parts.ACTIVITYBAR_PART && e.visible) {
 					this.layoutService.setPartHidden(true, Parts.ACTIVITYBAR_PART);
+				}
+				if (e.partId === Parts.AUXILIARYBAR_PART && e.visible) {
+					this.layoutService.setPartHidden(true, Parts.AUXILIARYBAR_PART);
 				}
 			}),
 		);
@@ -299,7 +303,6 @@ class NourlmsStudentRestrictions
 		style.textContent = [
 			".monaco-workbench .part.activitybar { display: none !important; }",
 			".monaco-workbench .part.titlebar > .titlebar-container > .titlebar-left > .menubar { display: none !important; }",
-			".monaco-workbench .auxiliarybar { display: none !important; }",
 			".monaco-workbench .action-item:has(.codicon-layout) { display: none !important; }",
 			".monaco-workbench .sidebar .composite-title .actions-container .action-item:has(.codicon-settings-view-bar-icon) { display: none !important; }",
 			".monaco-workbench .sidebar .composite-title .actions-container .action-item:has(.codicon-extensions-view-bar-icon) { display: none !important; }",

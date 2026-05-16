@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { Event } from '../../../../base/common/event.js';
 
 export const INourlmsAuthService = createDecorator<INourlmsAuthService>('nourlmsAuthService');
 
@@ -11,12 +12,14 @@ export interface INourlmsUserInfo {
 	readonly name: string;
 	readonly role: 'admin' | 'student';
 	readonly workspacePath: string;
+	readonly userId: number | undefined;
 }
 
 export interface INourlmsAuthService {
 	readonly _serviceBrand: undefined;
 	readonly userInfo: INourlmsUserInfo | undefined;
 	readonly isAuthenticated: boolean;
+	readonly onDidLogout: Event<void>;
 	logout(): Promise<void>;
 }
 

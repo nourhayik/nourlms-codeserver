@@ -337,20 +337,21 @@ export class WebClientServer {
 
 		// NourLMS: resolve user session and workspace
 		const nourlmsSession = (req as any).__nourlmsSession as nourlmsAuth.NourlmsSession | undefined;
-		let nourlmsUserInfo: { name: string; role: string; workspacePath: string } | undefined;
+		let nourlmsUserInfo: { name: string; role: string; workspacePath: string; userId: number } | undefined;
 		let effectiveFolderUri: URI | undefined = (this._environmentService.args['default-folder'] ? resolveWorkspaceURI(this._environmentService.args['default-folder']) : undefined) || undefined;
 		let effectiveWorkspaceUri: URI | undefined = (this._environmentService.args['default-workspace'] ? resolveWorkspaceURI(this._environmentService.args['default-workspace']) : undefined) || undefined;
 
 		if (nourlmsSession) {
-			const workspacesDir = this._environmentService.args['nourlms-workspaces-dir'] || nodePath.join(os.homedir(), 'nourlms-workspaces');
+			const workspacesDir = this._environmentService.args['nourlms-workspaces-dir'] || process.env.NOURLMS_WORKSPACES_DIR || nodePath.join(os.homedir(), 'nourlms-workspaces');
 			if (nourlmsSession.role === 'student') {
 				const sanitizedName = nourlmsAuth.sanitizeUsername(nourlmsSession.name);
 				const workspacePath = nourlmsAuth.ensureWorkspaceDir(workspacesDir, sanitizedName);
+				nourlmsAuth.writeWorkspaceSidecar(workspacePath, nourlmsSession);
 				effectiveFolderUri = URI.file(workspacePath).with({ scheme: Schemas.vscodeRemote, authority: remoteAuthority });
 				effectiveWorkspaceUri = undefined;
-				nourlmsUserInfo = { name: nourlmsSession.name, role: nourlmsSession.role, workspacePath };
+				nourlmsUserInfo = { name: nourlmsSession.name, role: nourlmsSession.role, workspacePath, userId: nourlmsSession.userId };
 			} else {
-				nourlmsUserInfo = { name: nourlmsSession.name, role: nourlmsSession.role, workspacePath: workspacesDir };
+				nourlmsUserInfo = { name: nourlmsSession.name, role: nourlmsSession.role, workspacePath: workspacesDir, userId: nourlmsSession.userId };
 			}
 		}
 
@@ -392,7 +393,10 @@ export class WebClientServer {
 			callbackRoute: callbackRoute,
 			configurationDefaults: {
 				'workbench.colorTheme': 'Default Dark Modern',
-				...(nourlmsSession?.role === 'student' ? { 'workbench.startupEditor': 'none' } : {}),
+				'chat.disableAIFeatures': true,
+				'chat.commandCenter.enabled': false,
+				'workbench.commandPalette.experimental.askChatLocation': 'chatView',
+				...(nourlmsSession?.role === 'student' ? { 'workbench.startupEditor': 'none', 'files.exclude': { '.nourlms-user.json': true } } : {}),
 			},
 		};
 

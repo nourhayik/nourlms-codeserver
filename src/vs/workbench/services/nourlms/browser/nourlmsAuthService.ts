@@ -4,11 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { INourlmsAuthService, INourlmsUserInfo, NourlmsContextKeys } from '../common/nourlms.js';
 
 export class NourlmsAuthService extends Disposable implements INourlmsAuthService {
 	declare readonly _serviceBrand: undefined;
+
+	private readonly _onDidLogout = this._register(new Emitter<void>());
+	readonly onDidLogout = this._onDidLogout.event;
 
 	private readonly _userInfo: INourlmsUserInfo | undefined;
 	private readonly _isStudentContextKey: IContextKey<boolean>;
@@ -45,6 +49,7 @@ export class NourlmsAuthService extends Disposable implements INourlmsAuthServic
 	}
 
 	async logout(): Promise<void> {
+		this._onDidLogout.fire();
 		const form = document.createElement('form');
 		form.method = 'POST';
 		form.action = '/nourlms-logout';
@@ -68,6 +73,7 @@ export class NourlmsAuthService extends Disposable implements INourlmsAuthServic
 					name: parsed.name,
 					role: parsed.role,
 					workspacePath: parsed.workspacePath || '',
+					userId: typeof parsed.userId === 'number' ? parsed.userId : undefined,
 				};
 			}
 		} catch {

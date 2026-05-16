@@ -26,3 +26,8 @@ product.overrides.json
 .vscode-test
 vscode-telemetry-docs/
 test-output.json
+*.log
+.env
+.env.local
+.env.*.local
+!.env.example

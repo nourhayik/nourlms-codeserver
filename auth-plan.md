@@ -185,20 +185,38 @@ For admin users:
 
 | Action | File | Purpose |
 |--------|------|---------|
-| CREATE | `src/vs/server/node/nourlmsAuth.ts` | Session/cookie/crypto helpers |
+| CREATE | `src/vs/server/node/nourlmsAuth.ts` | Session/cookie/crypto helpers + sidecar R/W + userId in session |
 | CREATE | `src/vs/server/nourlms-login.html` | Login page UI |
-| CREATE | `src/vs/workbench/services/nourlms/common/nourlms.ts` | Interface & types |
-| CREATE | `src/vs/workbench/services/nourlms/browser/nourlmsAuthService.ts` | Client auth service |
+| CREATE | `src/vs/server/node/nourlmsApiProxy.ts` | `/nourlms-api/*` allow-list proxy with per-route role enforcement |
+| CREATE | `src/vs/workbench/services/nourlms/common/nourlms.ts` | Interface & types (incl. `userId`) |
+| CREATE | `src/vs/workbench/services/nourlms/browser/nourlmsAuthService.ts` | Client auth service (logout hooks Homework cleanup) |
 | CREATE | `src/vs/workbench/services/nourlms/browser/nourlms.contribution.ts` | Service registration |
 | CREATE | `src/vs/workbench/contrib/nourlms/browser/nourlmsStudentRestrictions.ts` | Student feature lockdown |
 | CREATE | `src/vs/workbench/contrib/nourlms/browser/nourlmsAdminWorkspaces.ts` | Admin sidebar container |
 | CREATE | `src/vs/workbench/contrib/nourlms/browser/nourlmsAdminWorkspacesView.ts` | Workspace list view |
 | CREATE | `src/vs/workbench/contrib/nourlms/browser/nourlmsAdmin.contribution.ts` | Admin contribution registration |
+| CREATE | `src/vs/workbench/contrib/nourlms/browser/homework/nourlmsHomework.contribution.ts` | Homework container + view registration |
+| CREATE | `src/vs/workbench/contrib/nourlms/browser/homework/nourlmsHomeworkApi.ts` | Typed API wrapper over IRequestService → `/nourlms-api/*` |
+| CREATE | `src/vs/workbench/contrib/nourlms/browser/homework/nourlmsHomeworkPolling.ts` | Bounded backoff poll helper for AI grading |
+| CREATE | `src/vs/workbench/contrib/nourlms/browser/homework/nourlmsHomeworkPage.ts` | Webview "Open as Page" manager (dedup by kind:id) |
+| CREATE | `src/vs/workbench/contrib/nourlms/browser/homework/nourlmsHomeworkTargetStudent.ts` | Resolves target student from open workspace |
+| CREATE | `src/vs/workbench/contrib/nourlms/browser/homework/types.ts` | Mirror TypeScript interfaces from data model |
+| CREATE | `src/vs/workbench/contrib/nourlms/browser/homework/views/nourlmsHomeworkStudentView.ts` | Student View (list, detail, submit, submissions, polling) |
+| CREATE | `src/vs/workbench/contrib/nourlms/browser/homework/views/nourlmsHomeworkAdminQuestionBankView.ts` | Admin Question Bank (search, filter, assign, create) |
+| CREATE | `src/vs/workbench/contrib/nourlms/browser/homework/views/nourlmsHomeworkAdminAssignedView.ts` | Admin Assigned View (per-student homework, submissions, AI grade, correct) |
+| CREATE | `src/vs/workbench/contrib/nourlms/test/browser/homeworkPolling.test.ts` | Polling registry unit tests |
+| CREATE | `src/vs/workbench/contrib/nourlms/test/browser/studentViewBundle.test.ts` | Student view bundle isolation test (SC-006a) |
+| CREATE | `src/vs/workbench/contrib/nourlms/test/browser/adminAssignGating.test.ts` | Admin assign gating unit test (SC-006) |
+| CREATE | `src/vs/workbench/contrib/nourlms/test/browser/l10n.test.ts` | L10n lint test (FR-040) |
+| CREATE | `src/vs/workbench/contrib/nourlms/test/browser/apiOverhead.test.ts` | Panel-overhead assertion test (SC-003) |
+| CREATE | `src/vs/server/test/node/nourlmsAuthSidecar.test.ts` | Sidecar R/W unit tests |
+| CREATE | `src/vs/server/test/node/nourlmsApiProxy.test.ts` | Proxy allow-list, role, header, and SC-005/SC-010 tests |
 | MODIFY | `src/vs/server/node/serverEnvironmentService.ts` | Add CLI options |
-| MODIFY | `src/vs/server/node/remoteExtensionHostAgentServer.ts` | Auth middleware, login/logout routes, workspace isolation |
-| MODIFY | `src/vs/server/node/webClientServer.ts` | Session-aware workspace resolution, inject user info |
+| MODIFY | `src/vs/server/node/remoteExtensionHostAgentServer.ts` | Auth middleware, login/logout routes, workspace isolation, `/nourlms-api/*` route, workspaces lookup |
+| MODIFY | `src/vs/server/node/webClientServer.ts` | Session-aware workspace resolution, inject user info (incl. userId, sidecar, files.exclude) |
 | MODIFY | `src/vs/code/browser/workbench/workbench.html` | Add nourlms user meta tag |
 | MODIFY | `src/vs/workbench/workbench.web.main.ts` | Register nourlms contributions |
+| MODIFY | `src/vs/workbench/contrib/nourlms/browser/nourlms.contribution.ts` | Import homework contribution side-effect |
 
 ---
 

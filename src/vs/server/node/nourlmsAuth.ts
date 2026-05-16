@@ -108,3 +108,53 @@ export function ensureWorkspaceDir(workspacesDir: string, sanitizedName: string)
 	}
 	return workspacePath;
 }
+
+export interface NourlmsWorkspaceSidecar {
+	userId: number;
+	name: string;
+	sanitizedName: string;
+	writtenAt: string;
+	writtenBy: string;
+}
+
+export function writeWorkspaceSidecar(workspacePath: string, session: NourlmsSession): void {
+	const sidecarPath = path.join(workspacePath, '.nourlms-user.json');
+	const sanitizedName = path.basename(workspacePath);
+	const payload: NourlmsWorkspaceSidecar = {
+		userId: session.userId,
+		name: session.name,
+		sanitizedName,
+		writtenAt: new Date().toISOString(),
+		writtenBy: 'nourlms-codeserver',
+	};
+	try {
+		const existing = readWorkspaceSidecar(workspacePath);
+		if (existing && existing.userId === payload.userId && existing.name === payload.name && existing.sanitizedName === payload.sanitizedName) {
+			return;
+		}
+		fs.writeFileSync(sidecarPath, JSON.stringify(payload, null, '\t'), { mode: 0o600 });
+	} catch (e) {
+		console.warn(`[nourlmsAuth] Failed to write sidecar at ${sidecarPath}`, e);
+	}
+}
+
+export function readWorkspaceSidecar(workspacePath: string): NourlmsWorkspaceSidecar | null {
+	const sidecarPath = path.join(workspacePath, '.nourlms-user.json');
+	try {
+		if (!fs.existsSync(sidecarPath)) {
+			return null;
+		}
+		const raw = fs.readFileSync(sidecarPath, 'utf8');
+		const parsed = JSON.parse(raw) as NourlmsWorkspaceSidecar;
+		if (!parsed || typeof parsed.userId !== 'number' || !parsed.name || !parsed.sanitizedName) {
+			return null;
+		}
+		const expectedSanitizedName = path.basename(workspacePath);
+		if (parsed.sanitizedName !== expectedSanitizedName) {
+			return null;
+		}
+		return parsed;
+	} catch (e) {
+		return null;
+	}
+}

@@ -15,9 +15,15 @@ import { performance } from 'perf_hooks';
 import { serverOptions } from './serverEnvironmentService.js';
 import product from '../../platform/product/common/product.js';
 import * as perf from '../../base/common/performance.js';
+import { loadNourlmsEnv } from './nourlmsEnv.js';
 
 perf.mark('code/server/codeLoaded');
 (global as unknown as { vscodeServerCodeLoadedTime?: number }).vscodeServerCodeLoadedTime = performance.now();
+
+const nourlmsEnvResult = loadNourlmsEnv();
+if (nourlmsEnvResult.path) {
+	console.log(`[NourLMS] Loaded ${nourlmsEnvResult.loaded} env variable(s) from ${nourlmsEnvResult.path}` + (nourlmsEnvResult.skipped ? ` (${nourlmsEnvResult.skipped} skipped, already set in environment)` : ''));
+}
 
 const errorReporter: ErrorReporter = {
 	onMultipleValues: (id: string, usedValue: string) => {

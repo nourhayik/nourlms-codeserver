@@ -1,0 +1,35 @@
+---
+description: Project Development Guidelines
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# nourlms-codeserver Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2026-05-04
+
+## Active Technologies
+
+- TypeScript (matches the rest of `src/vs/`, ES module output, target compatible with Node 22 server + modern browser workbench). + VS Code workbench platform (in-tree only) — `IRequestService` (`src/vs/platform/request/`), `IWebviewWorkbenchService` (`src/vs/workbench/contrib/webviewPanel/`), view registry (`src/vs/workbench/common/views.ts`), context keys (`src/vs/platform/contextkey/`), `domSanitize.safeSetInnerHtml` (`src/vs/base/browser/domSanitize.ts`), `cookie` (already used by `nourlmsAuth.ts`), Node `http`/`https`. **No new third-party packages.** (001-homework-side-panel)
+
+## Project Structure
+
+```text
+src/
+tests/
+```
+
+## Commands
+
+npm test && npm run lint
+
+## Code Style
+
+TypeScript (matches the rest of `src/vs/`, ES module output, target compatible with Node 22 server + modern browser workbench).: Follow standard conventions
+
+## Recent Changes
+
+- 001-homework-side-panel: Added TypeScript (matches the rest of `src/vs/`, ES module output, target compatible with Node 22 server + modern browser workbench). + VS Code workbench platform (in-tree only) — `IRequestService` (`src/vs/platform/request/`), `IWebviewWorkbenchService` (`src/vs/workbench/contrib/webviewPanel/`), view registry (`src/vs/workbench/common/views.ts`), context keys (`src/vs/platform/contextkey/`), `domSanitize.safeSetInnerHtml` (`src/vs/base/browser/domSanitize.ts`), `cookie` (already used by `nourlmsAuth.ts`), Node `http`/`https`. **No new third-party packages.**
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

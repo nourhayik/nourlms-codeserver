@@ -81,6 +81,8 @@ import {
 	WebClientServer,
 } from "./webClientServer.js";
 import * as nourlmsAuth from "./nourlmsAuth.js";
+import { handleNourlmsApiProxy } from "./nourlmsApiProxy.js";
+import { handleNourlmsAiProxy } from "./nourlmsAiProxy.js";
 import * as nodeHttp from "http";
 import * as nodePath from "path";
 const require = createRequire(import.meta.url);
@@ -209,7 +211,13 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		const nourlmsApiUrl =
 			this._environmentService.args["nourlms-api-url"] ||
 			process.env.NOURLMS_API_URL ||
-			"http://nourlmsv3.local/api";
+			"";
+
+		if (!nourlmsApiUrl) {
+			this._logService.warn(
+				"[NourLMS] NOURLMS_API_URL is not set. Configure it in .env or via --nourlms-api-url.",
+			);
+		}
 
 		// GET /nourlms-login-logo.png — must run before session check (browser loads img without cookie)
 		if (pathname === "/nourlms-login-logo.png" && req.method === "GET") {
@@ -243,9 +251,27 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		}
 		(req as any).__nourlmsSession = nourlmsSession;
 
+		// /nourlms-api/* proxy (after session check, before the GET-only gate)
+		if (pathname.startsWith("/nourlms-api/")) {
+			const proxyPath = pathname.substring("/nourlms-api".length);
+			const query = parsedUrl.search || '';
+			return handleNourlmsApiProxy(req, res, proxyPath, query, nourlmsApiUrl, nourlmsSession, this._logService);
+		}
+
+		// /nourlms-ai/* admin-only AI proxy (after session check)
+		if (pathname.startsWith("/nourlms-ai/")) {
+			const aiPath = pathname.substring("/nourlms-ai".length);
+			return handleNourlmsAiProxy(req, res, aiPath, nourlmsSession, this._logService);
+		}
+
 		// GET /nourlms-workspaces - list student workspaces (admin only, auth required)
 		if (pathname === "/nourlms-workspaces" && req.method === "GET") {
 			return this._handleNourlmsWorkspaces(req, res, nourlmsSession);
+		}
+
+		// GET /nourlms-workspaces/lookup - resolve workspace to userId (admin only, auth required)
+		if (pathname === "/nourlms-workspaces/lookup" && req.method === "GET") {
+			return this._handleNourlmsWorkspacesLookup(req, res, nourlmsSession, parsedUrl);
 		}
 
 		// Only GET for remaining routes
@@ -275,6 +301,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			if (nourlmsSessionForPath && nourlmsSessionForPath.role === "student") {
 				const workspacesDir =
 					this._environmentService.args["nourlms-workspaces-dir"] ||
+					process.env.NOURLMS_WORKSPACES_DIR ||
 					nodePath.join(os.homedir(), "nourlms-workspaces");
 				const sanitizedName = nourlmsAuth.sanitizeUsername(
 					nourlmsSessionForPath.name,
@@ -579,6 +606,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 
 		const workspacesDir =
 			this._environmentService.args["nourlms-workspaces-dir"] ||
+			process.env.NOURLMS_WORKSPACES_DIR ||
 			nodePath.join(os.homedir(), "nourlms-workspaces");
 		try {
 			if (!fs.existsSync(workspacesDir)) {
@@ -588,10 +616,19 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			const entries = fs.readdirSync(workspacesDir, { withFileTypes: true });
 			const workspaces = entries
 				.filter((e) => e.isDirectory())
-				.map((e) => ({
-					name: e.name,
-					path: nodePath.join(workspacesDir, e.name),
-				}));
+				.map((e) => {
+					const wsPath = nodePath.join(workspacesDir, e.name);
+					const sidecar = nourlmsAuth.readWorkspaceSidecar(wsPath);
+					const entry: { name: string; path: string; userId?: number; displayName?: string } = {
+						name: e.name,
+						path: wsPath,
+					};
+					if (sidecar) {
+						entry.userId = sidecar.userId;
+						entry.displayName = sidecar.name;
+					}
+					return entry;
+				});
 			res.writeHead(200, {
 				"Content-Type": "application/json",
 				"Cache-Control": "no-store",
@@ -604,6 +641,59 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				JSON.stringify({ error: "Failed to list workspaces." }),
 			);
 		}
+	}
+
+	private _handleNourlmsWorkspacesLookup(
+		req: http.IncomingMessage,
+		res: http.ServerResponse,
+		session: nourlmsAuth.NourlmsSession,
+		parsedUrl: url.UrlWithParsedQuery,
+	): void {
+		if (session.role !== "admin") {
+			res.writeHead(403, { "Content-Type": "application/json" });
+			return void res.end(JSON.stringify({ error: "Access denied." }));
+		}
+
+		const rawPath = parsedUrl.query["path"];
+		if (typeof rawPath !== "string" || !rawPath) {
+			res.writeHead(400, { "Content-Type": "application/json" });
+			return void res.end(JSON.stringify({ error: "Missing path parameter." }));
+		}
+
+		const workspacesDir =
+			this._environmentService.args["nourlms-workspaces-dir"] ||
+			process.env.NOURLMS_WORKSPACES_DIR ||
+			nodePath.join(os.homedir(), "nourlms-workspaces");
+		const wsDirAbs = nodePath.resolve(workspacesDir);
+
+		let candidate: string;
+		if (nodePath.isAbsolute(rawPath)) {
+			candidate = nodePath.resolve(rawPath);
+		} else {
+			candidate = nodePath.resolve(wsDirAbs, nodePath.basename(rawPath));
+		}
+
+		if (!candidate.startsWith(wsDirAbs + nodePath.sep) && candidate !== wsDirAbs) {
+			res.writeHead(404, { "Content-Type": "application/json" });
+			return void res.end(JSON.stringify({ error: "Workspace not recognized" }));
+		}
+
+		const sidecar = nourlmsAuth.readWorkspaceSidecar(candidate);
+		if (!sidecar) {
+			res.writeHead(404, { "Content-Type": "application/json" });
+			return void res.end(JSON.stringify({ error: "Workspace not recognized" }));
+		}
+
+		res.writeHead(200, {
+			"Content-Type": "application/json",
+			"Cache-Control": "no-store",
+		});
+		return void res.end(JSON.stringify({
+			userId: sidecar.userId,
+			name: sidecar.name,
+			sanitizedName: sidecar.sanitizedName,
+			path: candidate,
+		}));
 	}
 
 	public handleUpgrade(req: http.IncomingMessage, socket: net.Socket) {
